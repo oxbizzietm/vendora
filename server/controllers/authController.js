@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { getPool } = require("../config/database");
+const { ensureVendorForUser } = require("../utils/vendorUtils");
 
 const allowedRoles = ["customer", "seller", "admin"];
 const publicUserFields = "id, name, email, role, phone, avatar_url, is_active, created_at, updated_at";
@@ -122,6 +123,10 @@ async function register(req, res, next) {
       `,
       [name, email, passwordHash, role, phone]
     );
+
+    if (role === "seller") {
+      await ensureVendorForUser(getPool(), { id: result.insertId, name });
+    }
 
     const user = await findPublicUserById(result.insertId);
     sendAuthResponse(res, 201, user);

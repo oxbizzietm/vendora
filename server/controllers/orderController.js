@@ -1,4 +1,5 @@
 const { getPool } = require("../config/database");
+const { ensureVendorForUser, findVendorForUser } = require("../utils/vendorUtils");
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -306,9 +307,9 @@ async function getMyOrders(req, res, next) {
         WHERE o.user_id = ?
         GROUP BY o.id
         ORDER BY o.created_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT ${limit} OFFSET ${offset}
       `,
-      [userId, limit, offset]
+      [userId]
     );
 
     res.json({
@@ -443,13 +444,21 @@ async function getSellerOrders(req, res, next) {
   try {
     const userId = req.user.id;
     const db = getPool();
-    const [vendorRows] = await db.execute("SELECT id FROM vendors WHERE user_id = ? LIMIT 1", [userId]);
+    let vendor = await findVendorForUser(db, userId);
 
-    if (!vendorRows[0]) {
+    if (!vendor && req.user.role === "seller") {
+      vendor = await ensureVendorForUser(db, req.user);
+    }
+
+    if (!vendor) {
       throw createHttpError(400, "You need to be a verified seller to view orders.");
     }
 
-    const vendorId = vendorRows[0].id;
+    if (vendor.status !== "approved") {
+      throw createHttpError(403, "Your seller store must be approved to view orders.");
+    }
+
+    const vendorId = vendor.id;
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 50);
     const offset = (page - 1) * limit;
@@ -477,9 +486,9 @@ async function getSellerOrders(req, res, next) {
         INNER JOIN users u ON u.id = o.user_id
         WHERE ${where}
         ORDER BY o.created_at DESC
-        LIMIT ? OFFSET ?
+        LIMIT ${limit} OFFSET ${offset}
       `,
-      [...params, limit, offset]
+      params
     );
 
     const orderIds = orders.map((order) => order.id);
@@ -543,16 +552,24 @@ async function updateOrderStatus(req, res, next) {
 
     await connection.beginTransaction();
 
-    const [vendorRows] = await connection.execute("SELECT id FROM vendors WHERE user_id = ? LIMIT 1", [userId]);
+    let vendor = await findVendorForUser(connection, userId);
 
-    if (!vendorRows[0] && req.user.role !== "admin") {
+    if (!vendor && req.user.role === "seller") {
+      vendor = await ensureVendorForUser(connection, req.user);
+    }
+
+    if (!vendor && req.user.role !== "admin") {
       throw createHttpError(403, "Only verified sellers and admins can update order status.");
+    }
+
+    if (vendor?.status !== "approved" && req.user.role !== "admin") {
+      throw createHttpError(403, "Your seller store must be approved to update order status.");
     }
 
     if (req.user.role !== "admin") {
       const [itemRows] = await connection.execute(
         "SELECT id FROM order_items WHERE order_id = ? AND vendor_id = ? LIMIT 1",
-        [orderId, vendorRows[0].id]
+        [orderId, vendor.id]
       );
 
       if (!itemRows[0]) {

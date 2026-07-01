@@ -14,10 +14,14 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const sellerRoutes = require("./routes/sellerRoutes");
 
 const app = express();
+const allowedOrigins = (process.env.CLIENT_ORIGIN || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || true,
+    origin: allowedOrigins.length > 0 ? allowedOrigins : true,
     credentials: true,
   })
 );

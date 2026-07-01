@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
 import { formatCurrency } from "../data/mockData";
 import api, { resolveAssetUrl } from "../lib/api";
+import { publishCartUpdate } from "../lib/cartEvents";
 
 export default function Cart() {
   const { isAuthenticated } = useAuth();
@@ -25,6 +26,7 @@ export default function Cart() {
       const { data } = await api.get("/cart");
       setItems(data.items || []);
       setSummary(data.summary || { subtotal: 0, itemCount: 0 });
+      publishCartUpdate(data);
       setError("");
     } catch {
       setError("Unable to load cart.");
@@ -44,8 +46,10 @@ export default function Cart() {
     }
 
     try {
-      await api.put(`/cart/${itemId}`, { quantity: newQuantity });
-      await loadCart();
+      const { data } = await api.put(`/cart/${itemId}`, { quantity: newQuantity });
+      setItems(data.items || []);
+      setSummary(data.summary || { subtotal: 0, itemCount: 0 });
+      publishCartUpdate(data);
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not update quantity.");
     }
@@ -53,8 +57,10 @@ export default function Cart() {
 
   async function handleRemove(itemId) {
     try {
-      await api.delete(`/cart/${itemId}`);
-      await loadCart();
+      const { data } = await api.delete(`/cart/${itemId}`);
+      setItems(data.items || []);
+      setSummary(data.summary || { subtotal: 0, itemCount: 0 });
+      publishCartUpdate(data);
       toast.success("Item removed from cart.");
     } catch {
       toast.error("Could not remove item.");
@@ -64,7 +70,9 @@ export default function Cart() {
   async function handleClear() {
     try {
       await api.delete("/cart/clear");
-      await loadCart();
+      setItems([]);
+      setSummary({ subtotal: 0, itemCount: 0 });
+      publishCartUpdate({ summary: { itemCount: 0, totalItems: 0 } });
       toast.success("Cart cleared.");
     } catch {
       toast.error("Could not clear cart.");

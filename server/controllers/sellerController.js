@@ -1,4 +1,5 @@
 const { getPool } = require("../config/database");
+const { ensureVendorForUser, findVendorForUser } = require("../utils/vendorUtils");
 
 function createHttpError(status, message) {
   const error = new Error(message);
@@ -7,18 +8,27 @@ function createHttpError(status, message) {
 }
 
 async function getSellerVendorId(userId) {
-  const [rows] = await getPool().execute("SELECT id FROM vendors WHERE user_id = ? LIMIT 1", [userId]);
-  return rows[0]?.id || null;
+  const vendor = await findVendorForUser(getPool(), userId);
+  return vendor?.id || null;
 }
 
 async function getSellerAnalytics(req, res, next) {
   try {
-    const vendorId = await getSellerVendorId(req.user.id);
+    let vendor = await findVendorForUser(getPool(), req.user.id);
 
-    if (!vendorId) {
+    if (!vendor && req.user.role === "seller") {
+      vendor = await ensureVendorForUser(getPool(), req.user);
+    }
+
+    if (!vendor) {
       throw createHttpError(400, "You need a seller store to view analytics.");
     }
 
+    if (vendor.status !== "approved") {
+      throw createHttpError(403, "Your seller store must be approved to view analytics.");
+    }
+
+    const vendorId = vendor.id;
     const db = getPool();
     const [[summaryRows], [revenueRows], [inventoryRows], [performanceRows]] = await Promise.all([
       db.execute(

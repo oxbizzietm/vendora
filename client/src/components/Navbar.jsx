@@ -4,6 +4,7 @@ import useAuth from "../hooks/useAuth";
 import SearchBar from "./SearchBar";
 import { Icon } from "./Icons";
 import api from "../lib/api";
+import { CART_UPDATED_EVENT } from "../lib/cartEvents";
 
 const baseNavItems = [
   { label: "Categories", href: "/shop" },
@@ -59,11 +60,23 @@ export default function Navbar() {
 
     loadCartCount();
 
-    // Refresh cart count every 30 seconds
+    function handleCartUpdated(event) {
+      const nextCount = event.detail?.itemCount;
+
+      if (typeof nextCount === "number") {
+        setCartCount(nextCount);
+        return;
+      }
+
+      loadCartCount();
+    }
+
+    window.addEventListener(CART_UPDATED_EVENT, handleCartUpdated);
     const interval = setInterval(loadCartCount, 30000);
 
     return () => {
       active = false;
+      window.removeEventListener(CART_UPDATED_EVENT, handleCartUpdated);
       clearInterval(interval);
     };
   }, [isAuthenticated]);

@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
 import { formatCurrency } from "../data/mockData";
 import { resolveAssetUrl } from "../lib/api";
+import { publishCartUpdate } from "../lib/cartEvents";
 import { Icon } from "./Icons";
 import api from "../lib/api";
 
@@ -20,7 +21,8 @@ export default function ProductCard({ product }) {
     }
 
     try {
-      await api.post("/cart", { productId: product.id, quantity: 1 });
+      const { data } = await api.post("/cart", { productId: product.id, quantity: 1 });
+      publishCartUpdate(data);
       toast.success(`${product.name} added to cart`);
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not add to cart.");

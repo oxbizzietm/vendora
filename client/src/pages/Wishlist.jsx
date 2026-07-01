@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import useAuth from "../hooks/useAuth";
 import { formatCurrency } from "../data/mockData";
 import api, { resolveAssetUrl } from "../lib/api";
+import { publishCartUpdate } from "../lib/cartEvents";
 
 export default function Wishlist() {
   const { isAuthenticated } = useAuth();
@@ -45,7 +46,8 @@ export default function Wishlist() {
 
   async function handleAddToCart(productId) {
     try {
-      await api.post("/cart", { productId, quantity: 1 });
+      const { data } = await api.post("/cart", { productId, quantity: 1 });
+      publishCartUpdate(data);
       toast.success("Added to cart!");
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not add to cart.");

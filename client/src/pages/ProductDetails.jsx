@@ -6,6 +6,7 @@ import ProductCard from "../components/ProductCard";
 import { formatCurrency } from "../data/mockData";
 import { Icon } from "../components/Icons";
 import api, { resolveAssetUrl } from "../lib/api";
+import { publishCartUpdate } from "../lib/cartEvents";
 
 export default function ProductDetails() {
   const { productId } = useParams();
@@ -73,7 +74,8 @@ export default function ProductDetails() {
     }
 
     try {
-      await api.post("/cart", { productId: product.id, quantity: 1 });
+      const { data } = await api.post("/cart", { productId: product.id, quantity: 1 });
+      publishCartUpdate(data);
       toast.success(`${product.name} added to cart`);
     } catch (err) {
       toast.error(err.response?.data?.message || "Could not add to cart.");

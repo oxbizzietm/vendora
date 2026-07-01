@@ -80,8 +80,7 @@ async function listUsers(req, res, next) {
     const db = getPool();
     const [countRows] = await db.execute("SELECT COUNT(*) AS total FROM users");
     const [rows] = await db.execute(
-      "SELECT id, name, email, role, phone, is_active, created_at FROM users ORDER BY created_at DESC LIMIT ? OFFSET ?",
-      [limit, offset]
+      `SELECT id, name, email, role, phone, is_active, created_at FROM users ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`
     );
 
     res.json({
@@ -203,9 +202,8 @@ async function listOrders(req, res, next) {
         FROM orders o
         INNER JOIN users u ON u.id = o.user_id
         ORDER BY o.created_at DESC
-        LIMIT ? OFFSET ?
-      `,
-      [limit, offset]
+        LIMIT ${limit} OFFSET ${offset}
+      `
     );
 
     res.json({
